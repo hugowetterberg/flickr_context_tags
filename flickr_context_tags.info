@@ -1,0 +1,6 @@
+; $Id$
+name = Flickr Context Tags
+version = "6.x-0.1"
+core = "6.x"
+description = "A flickr-image block for Drupal that displays public photos for different tags based on context"
+package = Flickr

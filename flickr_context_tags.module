@@ -1,0 +1,52 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_block().
+ */
+function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    // List our blocks
+    case 'list':
+      $blocks = array();
+      $blocks[0] = array(
+        'info' => t('From Flickr'),
+        'cache' => BLOCK_CACHE_PER_PAGE, // BLOCK_CACHE_GLOBAL | BLOCK_CACHE_PER_ROLE | BLOCK_CACHE_PER_USER BLOCK_NO_CACHE
+      );
+   return ;
+    break;
+    // Show the configuration form for the block
+    case 'configure':
+      switch ($delta) {
+        case 0:
+          $form = array();
+          // $form['conf'] = array(
+          //   '#type' => 'textfield',
+          //   '#title' => t(''),
+          //   '#default_value' => variable_get('flickr_context_tags_block_'. $delta .'_conf', ''),
+          // );
+          return $form;
+        break;
+      }
+    break;
+    // Save the configuration for the block
+    case 'save':
+      switch ($delta) {
+        case 0:
+          // variable_set('flickr_context_tags_block_'. $delta .'_conf', $edit['conf'])
+        break;
+      }
+    break;
+    // View the block
+    case 'view':
+      $block = array();
+      switch ($delta) {
+        case 0:
+          $block['subject'] = t('From Flickr');
+          $block['content'] = '';
+        break;
+      }
+      return $block;
+    break;
+  }
+}
