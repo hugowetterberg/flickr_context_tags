@@ -1,6 +1,22 @@
 <?php
 // $Id$
 
+function flickr_context_tags_menu() {
+  $items = array();
+  
+  $items['admin/settings/flickr/context_tags'] = array(
+    'title' => 'Context tags',
+    'description' => 'Settings for the contextual flickr search',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('flickr_context_tags_settings'),
+    'file' => 'flickr_context_tags_admin.inc.php',
+    'type' => MENU_NORMAL_ITEM, 
+    'access arguments' => array('administer site configuration'),
+  );
+  
+  return $items;
+}
+
 /**
  * Implementation of hook_block().
  */
@@ -11,42 +27,115 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
       $blocks = array();
       $blocks[0] = array(
         'info' => t('From Flickr'),
-        'cache' => BLOCK_CACHE_PER_PAGE, // BLOCK_CACHE_GLOBAL | BLOCK_CACHE_PER_ROLE | BLOCK_CACHE_PER_USER BLOCK_NO_CACHE
+        'cache' => BLOCK_CACHE_PER_PAGE,
       );
-   return ;
-    break;
-    // Show the configuration form for the block
-    case 'configure':
-      switch ($delta) {
-        case 0:
-          $form = array();
-          // $form['conf'] = array(
-          //   '#type' => 'textfield',
-          //   '#title' => t(''),
-          //   '#default_value' => variable_get('flickr_context_tags_block_'. $delta .'_conf', ''),
-          // );
-          return $form;
-        break;
-      }
-    break;
-    // Save the configuration for the block
-    case 'save':
-      switch ($delta) {
-        case 0:
-          // variable_set('flickr_context_tags_block_'. $delta .'_conf', $edit['conf'])
-        break;
-      }
+      return $blocks;
     break;
     // View the block
     case 'view':
       $block = array();
       switch ($delta) {
         case 0:
-          $block['subject'] = t('From Flickr');
-          $block['content'] = '';
+          if (arg(0) == 'node' && is_numeric(arg(1))) {
+            $block['subject'] = t('From Flickr');
+            
+            $node = node_load(arg(1));
+            $ex = flickr_context_tags_get_photos($node);
+            
+            $out = '';
+            foreach ($ex as $photo) {
+              $out .= l(flickr_img($photo, 's'), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
+                'html' => TRUE,
+              ));
+            }
+            $out .= '<p>' . t('Tag your pictures with !tag ...to make the show up here', array(
+              '!tag'=> '<input type="text" class="flickr-machine-tag select-all" value="' . flickr_context_tags_node_machine_tag($node) . '" /><br />'
+            )) . '</p>';
+            
+            $block['content'] = $out;
+          }
         break;
       }
       return $block;
     break;
   }
+}
+
+function _flickr_context_tags_machine($ns, $name, $value) {
+  return $ns . ':' . $name . '=' . $value;
+}
+
+/**
+ * Gets the flickr machine tag that identifies the node
+ *
+ * @return string The tag
+ **/
+function flickr_context_tags_node_machine_tag($node) {
+  $tag_data = array();
+  $ns = variable_get('flickr_context_tags_mech_namespace', '');
+  if ($node->nid && !empty($ns)) {
+    $tag = array('node',$node->nid);
+    drupal_alter('flickr_node_machine_tag', $tag, $node);
+    return _flickr_context_tags_machine($ns, $tag[0], $tag[1]);
+  }
+  return FALSE;
+}
+
+/**
+ * Gets a list of machine tags that can be used to associate a photo with a node
+ *
+ * @return array(string) An array of tags
+ **/
+function flickr_context_tags_node_machine_tags($node) {
+  $tag_data = array();
+  $ns = variable_get('flickr_context_tags_mech_namespace', '');
+  drupal_alter('flickr_node_machine_tags', $tag_data, $node, $ns);
+  
+  $tags = array();
+  foreach ($tags as $ns => $tag) {
+    foreach ($tag as $name => $value) {
+      $tags[] = _flickr_context_tags_machine($ns, $name, $value);
+    }
+  }
+  
+  return $tags;
+}
+
+function flickr_context_tags_get_photos($node) {
+  return array_merge(
+    flickr_context_tags_get_explicit_photos($node),
+    flickr_context_tags_get_implicit_photos($node),
+    flickr_context_tags_get_related_photos($node)
+  );
+}
+
+/**
+ * Get's photos that's been explicitly tagged for a node
+ *
+ * @return array
+ **/
+function flickr_context_tags_get_explicit_photos($node) {
+  $args = flickr_tag_request_args(array(flickr_context_tags_node_machine_tag($node)));
+  $photos = flickr_photos_search(NULL, 1, $args);
+  return $photos ? $photos['photo'] : array();
+}
+
+/**
+ * Get's photos that's been implicitly tagged for a node
+ *
+ * @return void
+ **/
+function flickr_context_tags_get_implicit_photos($node) {
+  $tags = flickr_context_tags_node_machine_tags($node);
+  if (!empty($tags)) {
+    $args = flickr_tag_request_args(array());
+    $photos = flickr_photos_search(NULL, 1, $args);
+    return $photos ? $photos['photo'] : array();
+  }
+  
+  return array();
+}
+
+function flickr_context_tags_get_related_photos($node) {
+  return array();
 }
