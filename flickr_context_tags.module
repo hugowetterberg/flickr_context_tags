@@ -63,6 +63,34 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
 
             $block['content'] = $out;
           }
+          else {
+            $block['subject'] = t('From Flickr');
+            $alias = drupal_get_path_alias($_GET['q']);
+            $paths = variable_get('flickr_context_tags_contexts', array());
+            foreach ($paths as $expr => $tags) {
+              if (preg_match($expr, $alias)) {
+                $args = flickr_tag_request_args($tags, 'any');
+                $args['per_page'] = 24;
+                $default_place = variable_get('flickr_context_tags_default_place_id', '');
+                if (!empty($default_place)) {
+                  $args['place_id'] = $default_place;
+                }
+                $photos = flickr_photos_search(NULL, 1, $args);
+                
+                $out = '';
+                if (!empty($photos['photo'])) {
+                  foreach ($photos['photo'] as $photo) {
+                    $out .= l(flickr_img($photo, 's'), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
+                      'html' => TRUE,
+                    ));
+                  }
+                }
+                $block['content'] = $out;
+                break;
+              }
+            }
+            $block['content'] .= '</pre>';
+          }
         break;
       }
       return $block;
@@ -115,24 +143,31 @@ function flickr_context_tags_get_photos($node) {
   
   // Search by title
   $args = array('text' => mb_strtolower($node->title));
-  if (module_exists('simple_geo')) {
-    if (isset($node->simple_geo_position)) {
-      $ll = split(' ', $node->simple_geo_position);
-      $res = flickr_request('flickr.places.findByLatLon', array(
-        'lat' => $ll[0],
-        'lon' => $ll[1],
-        'accuracy' => 11, //City-level
-      ));
-      $place = $res['places']['place'];
-      if (!empty($place)) {
-        $place = $place[0];
-        $args['place_id'] = $place['place_id'];
-      }
-      else {
-        $args['lat'] = $ll[0];
-        $args['lon'] = $ll[1];
-      }
+  $force_place = variable_get('flickr_context_tags_force_default_place_id', FALSE);
+  $default_place = variable_get('flickr_context_tags_default_place_id', '');
+  
+  if ($force_place && !empty($default_place)) { // Use default place if forced
+    $args['place_id'] = $default_place;
+  }
+  else if (module_exists('simple_geo') && isset($node->simple_geo_position)) { // Try to deduce the place from geodata
+    $ll = split(' ', $node->simple_geo_position);
+    $res = flickr_request('flickr.places.findByLatLon', array(
+      'lat' => $ll[0],
+      'lon' => $ll[1],
+      'accuracy' => 11, //City-level
+    ));
+    $place = $res['places']['place'];
+    if (!empty($place)) {
+      $place = $place[0];
+      $args['place_id'] = $place['place_id'];
     }
+    else { // Set direct coordinates if no place could be found
+      $args['lat'] = $ll[0];
+      $args['lon'] = $ll[1];
+    }
+  }
+  else if (!empty($default_place)) { // Use the default place if it was provided
+    $args['place_id'] = $default_place;
   }
   $text_photos = flickr_photos_search(NULL, 1, $args);
   
