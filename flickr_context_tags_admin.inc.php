@@ -1,5 +1,49 @@
 <?php
 
+function flickr_context_tags_flickr_user($form_state, $u) {
+  drupal_add_css(drupal_get_path('module','flickr_context_tags') . '/css/flickr.css');
+  $blocked = flickr_context_tags_images_blocked(array('owner'=>$u['id']));
+  
+  $form = array(
+    'user_id' => array(
+      '#type' => 'value',
+      '#value' => $u['id'],
+    ),
+  );
+  $form['name'] = array(
+    '#type' => 'markup',
+    '#value' =>
+      l('<img src="http://farm' . $u['iconfarm'] . '.static.flickr.com/' . 
+        $u['iconserver'] . '/buddyicons/' . $u['id'] . '.jpg"/>' . 
+        $u['username']['_content'], $u['profileurl']['_content'], array(
+          'html' => TRUE,
+          'attributes' => array(
+            'class' => 'flickr-user-link',
+          )
+      )),
+  );
+  $form['blocked'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Blocked'),
+    '#default_value' => $blocked,
+  );
+  $form['photos'] = array(
+    '#type' => 'item',
+    '#title' => t('Photo page'),
+    '#value' => l($u['photosurl']['_content'], $u['photosurl']['_content']),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  return $form;
+}
+
+function flickr_context_tags_flickr_user_submit($form, $form_state) {
+  $values = $form_state['values'];
+  flickr_context_tags_set_user_block($values['user_id'], $values['blocked']);
+}
+
 function flickr_context_tags_settings() {
   $form = array();
   

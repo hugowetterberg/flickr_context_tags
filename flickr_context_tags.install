@@ -10,6 +10,34 @@ function flickt_context_tags_uninstall() {
 }
 
 function flickr_context_tags_schema() {
-  return array();
+  $schema = array();
+  $schema['flickr_blocked_users'] = flickr_context_tags_schema_flickr_blocked_users_1();
+  return $schema;
 }
 
+function flickr_context_tags_schema_flickr_blocked_users_1() {
+  return array(
+    'description' => t('Users that have been blocked from context listings.'),
+    'fields' => array(
+      'user_id' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'description' => t('Flickr user id'),
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid that blocked this flickr user.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('user_id'),
+  );
+}
+
+function flickr_context_tags_update_1() {
+  $ret = array();
+  db_create_table($ret, 'flickr_blocked_users', flickr_context_tags_schema_flickr_blocked_users_1());
+  return $ret;
+}

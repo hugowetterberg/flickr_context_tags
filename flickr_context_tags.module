@@ -13,8 +13,31 @@ function flickr_context_tags_menu() {
     'type' => MENU_NORMAL_ITEM,
     'access arguments' => array('administer site configuration'),
   );
+  
+  $items['flickr-context-tags/user/%flickruser'] = array(
+    'title' => 'Flickr user',
+    'description' => 'Page for flickr user',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('flickr_context_tags_flickr_user', 2),
+    'file' => 'flickr_context_tags_admin.inc.php',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('flickr context tags block user'),
+  );
 
   return $items;
+}
+
+function flickruser_load($user_id) {
+  $res = flickr_request('flickr.people.getInfo', array(
+    'user_id' => $user_id,
+  ));
+  if ($res['stat']=='ok') {
+    return $res['person'];
+  }
+}
+
+function flickr_context_tags_perm() {
+  return array('flickr context tags block user');
 }
 
 /**
@@ -36,6 +59,7 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
       $block = array();
       switch ($delta) {
         case 0:
+          drupal_add_css(drupal_get_path('module','flickr_context_tags') . '/css/flickr.css');
           if (arg(0) == 'node' && is_numeric(arg(1))) {
             $block['subject'] = t('From Flickr');
 
@@ -51,7 +75,7 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
                 ));
               }
             }
-            
+
             $mtags = flickr_context_tags_node_machine_tags($node);
             $tag_inputs = array();
             foreach ($mtags as $tag) {
@@ -70,22 +94,15 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
             foreach ($paths as $expr => $tags) {
               if (preg_match($expr, $alias)) {
                 $args = flickr_tag_request_args($tags, 'any');
-                $args['per_page'] = 24;
                 $default_place = variable_get('flickr_context_tags_default_place_id', '');
                 if (!empty($default_place)) {
                   $args['place_id'] = $default_place;
                 }
                 $photos = flickr_photos_search(NULL, 1, $args);
-                
-                $out = '';
+
                 if (!empty($photos['photo'])) {
-                  foreach ($photos['photo'] as $photo) {
-                    $out .= l(flickr_img($photo, 's'), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
-                      'html' => TRUE,
-                    ));
-                  }
+                  $block['content'] = flickr_context_tags_images($photos['photo'], 18);
                 }
-                $block['content'] = $out;
                 break;
               }
             }
@@ -98,6 +115,72 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
   }
 }
 
+function flickr_context_tags_images($photos, $limit=0) {
+  $out = '';
+  $count = 0;
+  $may_block = user_access('flickr context tags block user');
+  foreach ($photos as $photo) {
+    $blocked = flickr_context_tags_images_blocked($photo);
+    if (!$blocked || $may_block) {
+      $count++;
+      $out .= '<span class="flickr-image ' . ($blocked?'flickr-image-blocked':'') . '">';
+      if ($may_block) {
+        $out .= l($blocked?t('Unblock user'):t('Block user'),'flickr-context-tags/user/' . $photo['owner'], array(
+          'attributes' => array(
+            'class' => 'block-link ' . ($blocked?'block-link-unblock':'block-link-block'),
+          ),
+        ));
+      }
+      $out .= l(flickr_img($photo, 's'), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
+        'html' => TRUE,
+      ));
+      $out .= '</span>';
+
+      if ($limit && $count>=$limit) {
+        break;
+      }
+    }
+  }
+  return $out;
+}
+
+function flickr_context_tags_set_user_block($user_id, $block=TRUE) {
+  global $user;
+  $is_blocked = flickr_context_tags_user_blocked($user_id);
+  if ($block && !$is_blocked) {
+    drupal_write_record('flickr_blocked_users', $values=array(
+      'user_id' => $user_id,
+      'uid' => $user->uid,
+    ));
+  }
+  else if (!$block && $is_blocked) {
+    db_query("DELETE FROM {flickr_blocked_users} 
+      WHERE user_id='%s'", array(
+        ':user_id' => $user_id,
+    ));
+  }
+}
+
+function flickr_context_tags_user_blocked($user_id) {
+  $blocked = db_result(db_query("SELECT COUNT(user_id) 
+    FROM {flickr_blocked_users} 
+    WHERE user_id='%s'", array(
+      ':user' => $user_id,
+  )));
+  return $blocked == 1;
+}
+
+function flickr_context_tags_images_blocked($photo) {
+  static $known;
+  if ($known[$photo['owner']]) {
+    return $known[$photo['owner']];
+  }
+  else {
+    $blocked = flickr_context_tags_user_blocked($photo['owner']);
+    return ($known[$photo['owner']] = $blocked == 1);
+  }
+}
+
 function _flickr_context_tags_machine($ns, $name, $value) {
   return $ns . ':' . $name . '=' . $value;
 }
@@ -105,7 +188,7 @@ function _flickr_context_tags_machine($ns, $name, $value) {
 function flickr_context_tags_flickr_node_machine_tags_alter(&$tag_data, $node, $ns) {
   $tag_data[$ns]['node'] = $node->nid;
   foreach ($node->taxonomy as $tid => $term) {
-    $tag_data[$ns]['is'] = mb_strtolower($term->name);
+    $tag_data[$ns]['is'] = '"' . str_replace('"', '', mb_strtolower($term->name)) . '"';
   }
 }
 
@@ -138,14 +221,17 @@ function flickr_context_tags_node_machine_tags($node) {
 function flickr_context_tags_get_photos($node) {
   // Get photos added through machine tags
   $tags = flickr_context_tags_node_machine_tags($node);
+  if (count($tags)>20) {
+    $tags = array_slice($tags, 0, 20);
+  }
   $args = flickr_tag_request_args($tags, 'any');
   $explicit_photos = flickr_photos_search(NULL, 1, $args);
-  
+
   // Search by title
   $args = array('text' => mb_strtolower($node->title));
   $force_place = variable_get('flickr_context_tags_force_default_place_id', FALSE);
   $default_place = variable_get('flickr_context_tags_default_place_id', '');
-  
+
   if ($force_place && !empty($default_place)) { // Use default place if forced
     $args['place_id'] = $default_place;
   }
@@ -170,7 +256,7 @@ function flickr_context_tags_get_photos($node) {
     $args['place_id'] = $default_place;
   }
   $text_photos = flickr_photos_search(NULL, 1, $args);
-  
+
   return array_merge($explicit_photos['photo'], $text_photos['photo']);
 }
 
