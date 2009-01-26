@@ -79,7 +79,7 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
             $mtags = flickr_context_tags_node_machine_tags($node);
             $tag_inputs = array();
             foreach ($mtags as $tag) {
-              $tag_inputs[] = '<input class="flickr-machine-tag select-all" value="' . $tag . '" /><br />';
+              $tag_inputs[] = '<input class="flickr-machine-tag select-all" value="' . htmlspecialchars($tag) . '" /><br />';
             }
             $out .= '<p>' . t('Tag your pictures with !tag ...to make them show up here', array(
               '!tag'=> join(t('or '), $tag_inputs),
@@ -188,7 +188,11 @@ function _flickr_context_tags_machine($ns, $name, $value) {
 function flickr_context_tags_flickr_node_machine_tags_alter(&$tag_data, $node, $ns) {
   $tag_data[$ns]['node'] = $node->nid;
   foreach ($node->taxonomy as $tid => $term) {
-    $tag_data[$ns]['is'] = '"' . str_replace('"', '', mb_strtolower($term->name)) . '"';
+    $name = str_replace('"', '', mb_strtolower($term->name));
+    if (strpos($name, ' ')) {
+      $name = '"' . $name . '"';
+    }
+    $tag_data[$ns]['is'] = $name;
   }
 }
 
