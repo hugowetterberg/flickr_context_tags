@@ -106,7 +106,6 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
                 break;
               }
             }
-            $block['content'] .= '</pre>';
           }
         break;
       }
