@@ -230,7 +230,7 @@ function flickr_context_tags_get_photos($node) {
     $tags = array_slice($tags, 0, 20);
   }
   $args = flickr_tag_request_args($tags, 'any');
-  
+
   // User?
   $user = variable_get('flickr_context_tags_userid', NULL);
   $explicit_photos = flickr_photos_search($user, 1, $args);
@@ -265,7 +265,6 @@ function flickr_context_tags_get_photos($node) {
   }
   // User?
   $user = variable_get('flickr_context_tags_userid', NULL);
-  
   $explicit_photos = flickr_photos_search($user, 1, $args);
   $text_photos = flickr_photos_search($user, 1, $args);
 
