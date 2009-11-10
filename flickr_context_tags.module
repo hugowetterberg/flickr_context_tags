@@ -70,7 +70,7 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
 
             if (!empty($ex)) {
               foreach ($ex as $photo) {
-                $out .= l(flickr_img($photo, 's'), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
+                $out .= l(flickr_img($photo, variable_get('flickr_context_tags_size', 'm')), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
                   'html' => TRUE,
                 ));
               }
@@ -98,7 +98,9 @@ function flickr_context_tags_block($op = 'list', $delta = 0, $edit = array()) {
                 if (!empty($default_place)) {
                   $args['place_id'] = $default_place;
                 }
-                $photos = flickr_photos_search(NULL, 1, $args);
+                // User?
+                $user = variable_get('flickr_context_tags_userid', NULL);
+                $photos = flickr_photos_search($user, 1, $args);
 
                 if (!empty($photos['photo'])) {
                   $block['content'] = flickr_context_tags_images($photos['photo'], 18);
@@ -130,7 +132,7 @@ function flickr_context_tags_images($photos, $limit=0) {
           ),
         ));
       }
-      $out .= l(flickr_img($photo, 's'), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
+      $out .= l(flickr_img($photo, variable_get('flickr_context_tags_size', 'm')), flickr_photo_page_url($photo['owner'], $photo['id']) , array(
         'html' => TRUE,
       ));
       $out .= '</span>';
@@ -228,7 +230,10 @@ function flickr_context_tags_get_photos($node) {
     $tags = array_slice($tags, 0, 20);
   }
   $args = flickr_tag_request_args($tags, 'any');
-  $explicit_photos = flickr_photos_search(NULL, 1, $args);
+  
+  // User?
+  $user = variable_get('flickr_context_tags_userid', NULL);
+  $explicit_photos = flickr_photos_search($user, 1, $args);
 
   // Search by title
   $args = array('text' => mb_strtolower($node->title));
@@ -258,7 +263,11 @@ function flickr_context_tags_get_photos($node) {
   else if (!empty($default_place)) { // Use the default place if it was provided
     $args['place_id'] = $default_place;
   }
-  $text_photos = flickr_photos_search(NULL, 1, $args);
+  // User?
+  $user = variable_get('flickr_context_tags_userid', NULL);
+  
+  $explicit_photos = flickr_photos_search($user, 1, $args);
+  $text_photos = flickr_photos_search($user, 1, $args);
 
   return array_merge($explicit_photos['photo'], $text_photos['photo']);
 }

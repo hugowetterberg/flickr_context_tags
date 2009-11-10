@@ -63,6 +63,13 @@ function flickr_context_tags_settings() {
     '#default_value' => $mt_ns,
   );
   
+  $form['flickr_context_tags_userid'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Flickr id'),
+    '#description' => t('Can be used to get photos from a specified flickr user'),
+    '#default_value' => variable_get('flickr_context_tags_userid', ''),
+  );
+  
   $form['flickr_context_tags_default_place_id'] = array(
     '#type' => 'textfield',
     '#title' => t('Default place id'),
@@ -74,6 +81,14 @@ function flickr_context_tags_settings() {
     '#type' => 'checkbox',
     '#title' => t('Always use the default place id'),
     '#default_value' => variable_get('flickr_context_tags_force_default_place_id', FALSE),
+  );
+  
+  $sizes = array('s' => t('Square'), 't' => t('Thumbnail'), 'm' => t('Small'), '-' => t('Medium'), 'b' => t('Large'), 'o' => t('Orginal'));
+  $form['flickr_context_tags_size'] = array(
+    '#type' => 'select',
+    '#title' => t('Select the size you want your photos in'),
+    '#default_value' => variable_get('flickr_context_tags_size', 'm'),
+    '#options' => $sizes,
   );
   
   // Tag configuration textarea
@@ -120,6 +135,8 @@ function flickr_context_tags_settings_submit($form, $state) {
   $paths = flickr_context_tags_unpack_contexts($values['flickr_context_tags_contexts']);
   variable_set('flickr_context_tags_contexts', $paths);
   variable_set('flickr_context_tags_mech_namespace', $values['flickr_context_tags_mech_namespace']);
+  variable_set('flickr_context_tags_userid', $values['flickr_context_tags_userid']);
   variable_set('flickr_context_tags_default_place_id', $values['flickr_context_tags_default_place_id']);
   variable_set('flickr_context_tags_force_default_place_id', $values['flickr_context_tags_force_default_place_id']);
+  variable_set('flickr_context_tags_size', $values['flickr_context_tags_size']);
 }

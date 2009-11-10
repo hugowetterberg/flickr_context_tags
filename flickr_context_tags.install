@@ -1,12 +1,12 @@
 <?php
 // $Id$
 
-function flickt_context_tags_install() {
-  drupal_install_schema('flickt_context_tags');
+function flickr_context_tags_install() {
+  drupal_install_schema('flickr_context_tags');
 }
 
-function flickt_context_tags_uninstall() {
-  drupal_uninstall_schema('flickt_context_tags');
+function flickr_context_tags_uninstall() {
+  drupal_uninstall_schema('flickr_context_tags');
 }
 
 function flickr_context_tags_schema() {
